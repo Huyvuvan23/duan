@@ -1,0 +1,134 @@
+#include <SPI.h>
+#include <MFRC522.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <Servo.h>
+#include <EEPROM.h>
+#define SS_PIN1 21
+#define SS_PIN2 22
+#define RST_PIN 23
+#define SERVO_PIN1 24
+#define SERVO_PIN2 25
+#define IR_SENSOR1 26
+#define IR_SENSOR2 27
+#define IR_SENSOR3 28
+#define IR_SENSOR4 29
+MFRC522 rfid1(SS_PIN1, RST_PIN);
+MFRC522 rfid2(SS_PIN2, RST_PIN);
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+Servo servo1;
+Servo servo2;
+String storedCards[4];
+void setup() {
+  Serial.begin(9600);
+  SPI.begin();
+  rfid1.PCD_Init();
+  rfid2.PCD_Init();
+  lcd.init();
+  lcd.backlight();
+  servo1.attach(SERVO_PIN1);
+  servo2.attach(SERVO_PIN2);
+  pinMode(IR_SENSOR1, INPUT);
+  pinMode(IR_SENSOR2, INPUT);
+  pinMode(IR_SENSOR3, INPUT);
+  pinMode(IR_SENSOR4, INPUT);
+  // Load stored cards from EEPROM
+  for (int i = 0; i < 4; i++) {
+    storedCards[i] = readCardFromEEPROM(i);
+  }
+  // Display initial state on LCD
+  updateLCD();
+}
+void loop() {
+  if (digitalRead(IR_SENSOR1) == HIGH || digitalRead(IR_SENSOR2) == HIGH || digitalRead(IR_SENSOR3) == HIGH || digitalRead(IR_SENSOR4) == HIGH) {
+    if (rfid1.PICC_IsNewCardPresent() && rfid1.PICC_ReadCardSerial()) {
+      String cardID = getCardID(rfid1);
+      for (int i = 0; i < 4; i++) {
+        if (storedCards[i] == "") {
+          storedCards[i] = cardID;
+          writeCardToEEPROM(i, cardID);
+          lcd.setCursor(0, 0);
+          lcd.print("Card Stored: ");
+          lcd.print(cardID);
+          servo1.write(90); // Mở barrier
+          delay(5000);
+          servo1.write(0); // Đóng barrier
+          updateLCD();
+          break;
+        }
+      }
+      rfid1.PICC_HaltA();
+    }
+  }
+  if (rfid2.PICC_IsNewCardPresent() && rfid2.PICC_ReadCardSerial()) {
+    String cardID = getCardID(rfid2);
+    for (int i = 0; i < 4; i++) {
+      if (storedCards[i] == cardID) {
+        storedCards[i] = "";
+        writeCardToEEPROM(i, "");
+        lcd.setCursor(0, 1);
+        lcd.print("Card Removed: ");
+        lcd.print(cardID);
+        servo2.write(90); // Mở barrier
+        delay(5000);
+        servo2.write(0); // Đóng barrier
+        updateLCD();
+        break;
+      }
+    }
+    rfid2.PICC_HaltA();
+  }
+}
+String getCardID(MFRC522 rfid) {
+  String cardID = "";
+  for (byte i = 0; i < rfid.uid.size; i++) {
+    cardID += String(rfid.uid.uidByte[i], HEX);
+  }
+  return cardID;
+}
+void writeCardToEEPROM(int index, String cardID) {
+  int addr = index * 10;
+  for (int i = 0; i < 10; i++) {
+    if (i < cardID.length()) {
+      EEPROM.write(addr + i, cardID[i]);
+    } else {
+      EEPROM.write(addr + i, 0);
+    }
+  }
+  EEPROM.commit();
+}
+String readCardFromEEPROM(int index) {
+  int addr = index * 10;
+  String cardID = "";
+  for (int i = 0; i < 10; i++) {
+    char c = EEPROM.read(addr + i);
+    if (c != 0) {
+      cardID += c;
+    }
+  }
+  return cardID;
+}
+void updateLCD() {
+  int occupied[4] = {0, 0, 0, 0};
+  int totalFree = 4;
+  for (int i = 0; i < 4; i++) {
+    if (storedCards[i] != "") {
+      occupied[i] = 1;
+      totalFree--;
+    }
+  }
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("VT1 VT2 VT3 VT4 SUM");
+  lcd.setCursor(0, 1);
+  lcd.print(occupied[0]);
+  lcd.print(" ");
+  lcd.print(occupied[1]);
+  lcd.print(" ");
+  lcd.print(occupied[2]);
+  lcd.print(" ");
+  lcd.print(occupied[3]);
+  lcd.print(" ");
+  lcd.print(totalFree);
+}
+ 
