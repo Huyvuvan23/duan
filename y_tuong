@@ -1,0 +1,21 @@
+the master =  eeprom 0-10
+	add the
+		neu ton tai roi
+			thong bao ra man hinh LCD
+		neu chua
+			add the va thong bao ra man hinh LCD
+	xoa the
+		neu chua ton tai
+			thong bao ra man hinh LCD
+		neu ton tai roi
+			xoa the va thong bao ra man hinh LCD
+vao
+	kiem tra xem co la the thang khong
+		co thi mo cua
+	neu khong phai the thang 
+		add the va mo cua
+ra
+	kiem tra xem co co phai la the thang khong
+		co thi mo cua va khong xoa the
+	khong phai the thang
+		xoa the va mo cua
